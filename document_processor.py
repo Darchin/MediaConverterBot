@@ -74,3 +74,44 @@ class DocumentProcessor :
             output_paths.append(output_path)
 
         return output_paths
+
+    def compress_pdf(self, pdf_path, quality="medium", output_filename=None):
+        """
+        Compress a PDF using Ghostscript with three preset options: low, medium, high.
+
+        :param pdf_path: Path to the PDF to be compressed.
+        :param quality: One of ['low', 'medium', 'high'].
+        :param output_filename: Name of the compressed output file (optional).
+        :return: Path to the compressed PDF file.
+        """
+        settings_map = {
+            "low": "/screen",    # smaller size, lower quality
+            "medium": "/ebook",  # better quality
+            "high": "/prepress"  # best quality, larger size
+        }
+
+        if quality not in settings_map:
+            raise ValueError(f"Quality must be one of {list(settings_map.keys())}")
+
+        if output_filename is None:
+            base_name = os.path.splitext(os.path.basename(pdf_path))[0]
+            output_filename = f"{base_name}_compressed_{quality}.pdf"
+
+        output_path = os.path.join(self.output_dir, output_filename)
+
+        # Example Ghostscript command
+        gs_command = [
+            "gs",
+            "-sDEVICE=pdfwrite",
+            f"-dPDFSETTINGS={settings_map[quality]}",
+            "-dCompatibilityLevel=1.4",
+            "-dNOPAUSE",
+            "-dQUIET",
+            "-dBATCH",
+            f"-sOutputFile={output_path}",
+            pdf_path
+        ]
+
+        subprocess.run(gs_command, check=True)
+
+        return output_path
