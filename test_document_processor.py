@@ -31,3 +31,15 @@ def test_split_pdf(doc_processor):
     assert len(output_paths) == 2, "Should produce two fragments"
     for path in output_paths:
         assert os.path.exists(path), f"Output fragment {path} should exist"
+
+def test_compress_pdf(doc_processor):
+    test_dir = "test_files"
+    pdf_path = os.path.join(test_dir, "sample_document1.pdf")
+
+    # Test low-quality compression
+    compressed_path = doc_processor.compress_pdf(pdf_path, quality="low", output_filename="compressed_low.pdf")
+    assert os.path.exists(compressed_path), "Compressed PDF (low) should exist"
+
+    # Test medium-quality compression
+    compressed_path = doc_processor.compress_pdf(pdf_path, quality="medium", output_filename="compressed_medium.pdf")
+    assert os.path.exists(compressed_path), "Compressed PDF (medium) should exist"
