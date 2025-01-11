@@ -373,3 +373,151 @@ class VideoProcessor:
             output_paths.append(out_file)
 
         return output_paths
+    
+        # ----------------------------------------------------
+    # 5) Extract audio or video
+    # ----------------------------------------------------
+    def extract_audio(
+        self,
+        input_path: str,
+        output_path: str
+    ) -> str:
+        """
+        Extract only audio to a purely audio container format if possible,
+        e.g. .m4a, .mp3, .wav. We do not want to produce a .mpeg file
+        containing MP2 because it's often unplayable in many players.
+        """
+        container, acodec = _guess_audio_container_and_codec(output_path)
+        # We do -vn to drop video, and either copy or transcode to that audio codec.
+        # Usually we just transcode, for consistent results.
+        # If the user’s input audio is the same codec, we could do copy, but let’s
+        # keep it simple: always transcode => ensures broad compatibility.
+        (
+            ffmpeg
+            .input(input_path)
+            .output(output_path, vn=None, acodec=acodec, format=container)
+            .run(overwrite_output=True)
+        )
+        return output_path
+
+    def extract_video_only(
+        self,
+        input_path: str,
+        output_path: str
+    ) -> str:
+        """
+        Extract only the video stream (drop audio),
+        preserving container if possible.
+        """
+        container, vcodec, acodec = _guess_container_and_codecs(output_path)
+        in_probe = ffmpeg.probe(input_path)
+        streams = in_probe['streams']
+        video_stream = next((s for s in streams if s['codec_type'] == 'video'), None)
+        if not video_stream:
+            raise ValueError("No video stream found in input.")
+
+        in_vcodec = video_stream.get('codec_name', '')
+        if in_vcodec == vcodec:
+            final_vcodec = 'copy'
+        else:
+            final_vcodec = vcodec
+
+        (
+            ffmpeg
+            .input(input_path)
+            .output(output_path, an=None, vcodec=final_vcodec, format=container)
+            .run(overwrite_output=True)
+        )
+        return output_path
+
+    # ----------------------------------------------------
+    # 6) Add caption
+    # ----------------------------------------------------
+    def add_caption(
+        self,
+        input_path: str,
+        output_path: str,
+        text: str,
+        start_time: float,
+        end_time: float,
+        font: str = "Consolas",
+        font_size: int = 24,
+        font_color: str = "white",
+        box_color: str = "black",
+        box_alpha: float = 0.5,
+        padding: int = 10,
+    ) -> str:
+        """
+        Adds a caption with an auto bounding box and padding over [start_time, end_time].
+        This requires re-encoding the video track (drawtext filter).
+        Audio is copied or transcoded as needed.
+        """
+        if font not in self.font_map:
+            raise ValueError(f"Font '{font}' not recognized. "
+                             f"Available fonts: {list(self.font_map.keys())}")
+        fontfile = self.font_map[font]
+
+        in_probe = ffmpeg.probe(input_path)
+        in_format = in_probe['format']['format_name'].split(',')[0]
+        streams = in_probe['streams']
+        audio_stream = next((s for s in streams if s['codec_type'] == 'audio'), None)
+
+        container, vcodec, acodec = _guess_container_and_codecs(output_path)
+        vid_stream = next(s for s in streams if s['codec_type'] == 'video')
+        width = vid_stream['width']
+        height = vid_stream['height']
+
+        # Approx text bounding
+        char_width_factor = 0.6
+        text_width = int(len(text) * font_size * char_width_factor)
+        text_height = int(font_size * 1.2)
+        box_w = text_width + 2 * padding
+        box_h = text_height + 2 * padding
+
+        # Position near bottom center
+        x_box = (width - box_w) // 2
+        y_box = int(height * 0.8)
+        
+
+        # Calculate centered text position within the box
+        x_text = x_box + (box_w - text_width) // 2
+        # Adjust y_text to vertically center the text. 
+        # The y position in drawtext refers to the baseline, so we add half the box height.
+        y_text = y_box + (box_h - text_height) // 2 + font_size // 2
+
+        if container == in_format and audio_stream and audio_stream.get('codec_name') == acodec:
+            audio_codec_final = 'copy'
+        else:
+            audio_codec_final = acodec
+
+        drawbox_filter = {
+            'x': x_box,
+            'y': y_box,
+            'w': box_w,
+            'h': box_h,
+            'color': f'{box_color}@{box_alpha}',
+            't': 'fill',
+            'enable': f'between(t,{start_time},{end_time})'
+        }
+        drawtext_filter = {
+            'fontfile': fontfile,
+            'text': text,
+            'fontcolor': font_color,
+            'fontsize': font_size,
+            'x': x_text,
+            'y': y_text,
+            'enable': f'between(t,{start_time},{end_time})'
+        }
+
+        inp = ffmpeg.input(input_path)
+        v = inp.video.filter('drawbox', **drawbox_filter)
+        v = v.filter('drawtext', **drawtext_filter)
+
+        (
+            ffmpeg
+            .output(v, inp.audio, output_path,
+                    vcodec=vcodec, acodec=audio_codec_final, format=container)
+            .run(overwrite_output=True)
+        )
+
+        return output_path
