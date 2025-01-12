@@ -115,3 +115,152 @@ class DocumentProcessor :
         subprocess.run(gs_command, check=True)
 
         return output_path
+
+    def _deskew_with_tesseract_osd(self, pil_image):
+        """
+        Performs deskewing using Tesseract's OSD (Orientation and Script Detection).
+        :param pil_image: A PIL Image object.
+        :return: A new PIL Image, rotated to correct orientation.
+        """
+        # Get OSD data from Tesseract
+        osd_data = pytesseract.image_to_osd(pil_image)
+        # Example OSD output snippet:
+        #   Page number: 0
+        #   Orientation in degrees: 270
+        #   Rotate: 90
+        #   Orientation confidence: 10.00
+        #   Script: Latin
+        #   Script confidence: 7.96
+
+        # Parse out the orientation in degrees
+        angle_search = re.search(r"Orientation in degrees: (\d+)", osd_data)
+        if angle_search:
+            orientation = int(angle_search.group(1))
+        else:
+            orientation = 0
+
+        # Convert Tesseract orientation to a rotation angle
+        # If orientation is 270°, we want to rotate by +90° to correct it
+        # Typically: corrected rotation = 360 - orientation
+        rot_angle = (360 - orientation) % 360
+        if rot_angle != 0:
+            pil_image = pil_image.rotate(rot_angle, expand=True)
+
+        return pil_image
+
+    def _save_ocr_to_docx(self, text_lines, output_path):
+        """
+        Saves OCR text lines to a docx file, attempting to preserve some structure.
+        :param text_lines: List of text lines (strings).
+        :param output_path: Full path to output docx file.
+        """
+        doc = Document()
+        for line in text_lines:
+            doc.add_paragraph(line)
+        doc.save(output_path)
+
+    def _save_ocr_to_markdown(self, text_lines, output_path):
+        """
+        Saves OCR text lines to a markdown file.
+        :param text_lines: List of text lines (strings).
+        :param output_path: Full path to output md file.
+        """
+        with open(output_path, "w", encoding="utf-8") as f:
+            for line in text_lines:
+                f.write(line + "\n")
+
+    def ocr_document(
+        self,
+        input_path,
+        output_format="pdf",
+        language=None,
+        output_filename=None
+    ):
+        """
+        Performs deskewing and OCR on the given input, which can be a PDF or an image.
+        If it's a PDF, each page is converted to an image, deskewed, and then OCR is performed.
+        If it's an image, it is processed as a single page.
+
+        :param input_path: Path to the input file (PDF or image).
+        :param output_format: 'pdf' (searchable PDF), 'md' (markdown), or 'docx'.
+        :param language: Language for OCR. If None, uses Tesseract default or OSD for script detection.
+        :param output_filename: Optional name for the output file.
+        :return: Path to the output (PDF, MD, or DOCX) file.
+        """
+        base_name = os.path.splitext(os.path.basename(input_path))[0]
+
+        # Set Tesseract language
+        config = ""
+        if language:
+            config = f"-l {language}"
+
+        # Determine if input is PDF or image
+        file_ext = os.path.splitext(input_path)[1].lower()
+        image_extensions = [".png", ".jpg", ".jpeg", ".tiff", ".bmp"]
+        is_image = file_ext in image_extensions
+
+        if output_filename is None:
+            output_filename = f"{base_name}_ocr.{output_format}"
+
+        output_path = os.path.join(self.output_dir, output_filename)
+
+        if is_image:
+            # 1) Open image with PIL
+            pil_img = Image.open(input_path).convert("RGB")
+            # 2) Deskew using Tesseract OSD
+            deskewed_img = self._deskew_with_tesseract_osd(pil_img)
+            # 3) Perform OCR
+            ocr_text = pytesseract.image_to_string(deskewed_img, config=config)
+
+            if output_format == "pdf":
+                # Make a single-page searchable PDF
+                pdf_bytes = pytesseract.image_to_pdf_or_hocr(deskewed_img, extension='pdf', config=config)
+                with open(output_path, "wb") as f:
+                    f.write(pdf_bytes)
+
+            elif output_format == "docx":
+                self._save_ocr_to_docx(ocr_text.splitlines(), output_path)
+
+            elif output_format == "md":
+                self._save_ocr_to_markdown(ocr_text.splitlines(), output_path)
+
+            else:
+                raise ValueError("Unsupported output format.")
+        else:
+            # It's a PDF
+            # Convert PDF pages to images => deskew => OCR => combine
+            pdf_pages = convert_from_path(input_path, dpi=300)
+
+            if output_format == "pdf":
+                # Build a new PDF with a text layer on each page
+                writer = PdfWriter()
+                for page_img in pdf_pages:
+                    # 1) Deskew the PIL image
+                    deskewed_img = self._deskew_with_tesseract_osd(page_img)
+                    # 2) Convert to OCR'ed PDF bytes
+                    pdf_bytes = pytesseract.image_to_pdf_or_hocr(deskewed_img, extension='pdf', config=config)
+                    # 3) Read the PDF bytes back into a PdfReader, then add page(s) to the writer
+                    page_reader = PdfReader(BytesIO(pdf_bytes))
+                    for p in page_reader.pages:
+                        writer.add_page(p)
+
+                with open(output_path, "wb") as out_file:
+                    writer.write(out_file)
+
+            elif output_format in ["docx", "md"]:
+                # Extract text from each page via OCR and output as docx or md
+                all_text_lines = []
+                for page_img in pdf_pages:
+                    deskewed_img = self._deskew_with_tesseract_osd(page_img)
+                    text = pytesseract.image_to_string(deskewed_img, config=config)
+                    if text:
+                        all_text_lines.extend(text.splitlines())
+
+                if output_format == "docx":
+                    self._save_ocr_to_docx(all_text_lines, output_path)
+                else:
+                    self._save_ocr_to_markdown(all_text_lines, output_path)
+            else:
+                raise ValueError("Unsupported output format.")
+
+        return output_path
