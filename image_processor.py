@@ -153,6 +153,19 @@ class ImageProcessor:
         return output_path
     
     def change_format(self, input_path, new_format, output_path=None, **kwargs):
+        """
+        Changes the format of an image file and saves it to the specified output path.
+
+        Args:
+            input_path (str): The file path to the input image.
+            new_format (str): The new format for the image (e.g., "jpeg", "png").
+            output_path (str, optional): The file path to save the converted image. 
+                                        If not provided, it will be generated automatically.
+            **kwargs: Additional parameters, e.g., "compression" for JPEG quality.
+
+        Returns:
+            str: The file path of the saved image in the new format.
+        """
         image = Image.open(input_path)
     
         if not output_path:
@@ -333,3 +346,4 @@ class ImageProcessor:
         # --- Step 9: Save the result ---
         image.save(output_path, format=out_format)
         return output_path
+
