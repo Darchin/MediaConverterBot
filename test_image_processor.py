@@ -102,7 +102,7 @@ def test_stack_images_horizontal(processor):
 
 def test_remove_background(processor):
     """
-    Test removing background from 'person.jpg'.
+    Test removing background  'person.jpg'.
     """
     input_path = os.path.join(TEST_FILES_DIR, "person.jpg")
     output_path = processor.remove_background(input_path)
@@ -113,7 +113,7 @@ def test_remove_background(processor):
 
 def test_change_format(processor):
     """
-    Test removing background from 'person.jpg'.
+    Test change format 'person.jpg'.
     """
     input_path = os.path.join(TEST_FILES_DIR, "person.jpg")
     output_path = processor.change_format(
@@ -164,3 +164,4 @@ def test_add_caption(processor):
             assert img is not None, f"Captioned image is not a valid image file for position: {pos}"
            
         print(f"Captioned image with position {pos} saved at: {output_path}")
+
