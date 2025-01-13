@@ -1,0 +1,15 @@
+os
+Pillow
+rembg
+pytest
+re
+uuid
+subprocess
+io
+math
+typing
+ffmpeg-python
+pytesseract
+PyPDF2
+python-docx
+pdf2image
