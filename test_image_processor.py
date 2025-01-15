@@ -8,8 +8,8 @@ from PIL import Image
 
 from image_processor import ImageProcessor
 
-TEST_FILES_DIR = "C:/Users/maryam/Desktop/software_project/test_files"
-OUTPUT_DIR = "C:/Users/maryam/Desktop/software_project/image_output"
+TEST_FILES_DIR = "./test_files"
+OUTPUT_DIR = "image_output"
 
 @pytest.fixture(scope="module")
 def processor():
