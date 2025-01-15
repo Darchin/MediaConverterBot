@@ -10,7 +10,7 @@ from video_processor import VideoProcessor
 
 
 # Bot Token
-BOT_TOKEN = "--"
+BOT_TOKEN = "7881068420:AAG6t17WXbf9kKqAZkICxVndz4MXIRRgbpg"
 UPLOAD_DIR = 'uploads'
 
 # Initialize processors
@@ -217,7 +217,7 @@ async def handle_additional_input(update: Update, context: ContextTypes.DEFAULT_
         box_color=(0, 0, 0, 128),
         padding=10,
         font_name="Consolas",
-        font_size=20,
+        font_size=36,
         font_color=(255, 255, 255, 255),
         output_path=None,
         text_position="center")
