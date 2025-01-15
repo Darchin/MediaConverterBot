@@ -19,9 +19,7 @@ RUN apt-get update && apt-get install -y \
         ghostscript \
         poppler-utils \
         ffmpeg \
-        python-docx \
-        tesseract-ocr \
-        python-telegram-bot && \
+        tesseract-ocr && \
     wget https://bootstrap.pypa.io/get-pip.py && \
     python3.12 get-pip.py && \
     rm get-pip.py && \
@@ -33,6 +31,8 @@ RUN apt-get update && apt-get install -y \
         pytesseract \
         PyPDF2 \
         pdf2image \
+	python-docx \
+	python-telegram-bot \
         opencv-python && \
     mkdir $HOME/.u2net && \
     wget -O $HOME/.u2net/isnet-general-use.onnx https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx && \
