@@ -8,8 +8,8 @@ from PIL import Image
 
 from image_processor import ImageProcessor
 
-TEST_FILES_DIR = "C:/Users/maryam/Desktop/software_project/test_files"
-OUTPUT_DIR = "C:/Users/maryam/Desktop/software_project/image_output"
+TEST_FILES_DIR = "./test_files"
+OUTPUT_DIR = "image_output"
 
 @pytest.fixture(scope="module")
 def processor():
@@ -102,7 +102,7 @@ def test_stack_images_horizontal(processor):
 
 def test_remove_background(processor):
     """
-    Test removing background  'person.jpg'.
+    Test removing background from 'person.jpg'.
     """
     input_path = os.path.join(TEST_FILES_DIR, "person.jpg")
     output_path = processor.remove_background(input_path)
@@ -113,7 +113,7 @@ def test_remove_background(processor):
 
 def test_change_format(processor):
     """
-    Test change format 'person.jpg'.
+    Test change format from 'person.jpg'.
     """
     input_path = os.path.join(TEST_FILES_DIR, "person.jpg")
     output_path = processor.change_format(
@@ -164,4 +164,3 @@ def test_add_caption(processor):
             assert img is not None, f"Captioned image is not a valid image file for position: {pos}"
            
         print(f"Captioned image with position {pos} saved at: {output_path}")
-

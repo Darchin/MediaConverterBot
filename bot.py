@@ -10,7 +10,7 @@ from video_processor import VideoProcessor
 
 
 # Bot Token
-BOT_TOKEN = "--"
+BOT_TOKEN = '7881068420:AAG6t17WXbf9kKqAZkICxVndz4MXIRRgbpg'
 UPLOAD_DIR = 'uploads'
 
 # Initialize processors
@@ -80,6 +80,8 @@ async def handle_file_upload(update: Update, context: ContextTypes.DEFAULT_TYPE)
             [InlineKeyboardButton("چرخش تصویر", callback_data="process_rotate")],
             [InlineKeyboardButton("حذف پس‌زمینه", callback_data="process_removebg")],
             [InlineKeyboardButton("اضافه کردن زیرنویس", callback_data="process_addcaption")],
+            [InlineKeyboardButton("کراپ", callback_data="process_crop")],
+            [InlineKeyboardButton("نغییر فرمت", callback_data="process_format")],
             [InlineKeyboardButton("بازگشت", callback_data="back")]
         ]
     elif media_type == 'video':
@@ -134,6 +136,14 @@ async def handle_processing(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif process_type == "rotate":
         await query.edit_message_text("لطفاً زاویه چرخش را وارد کنید (مثال: 90):")
         context.user_data['waiting_for_input'] = "rotate"
+
+    elif process_type == "crop":
+        await query.edit_message_text("لطفا وارد کنید از هر طرف چند درصد از تصویر کات شود برای مثال 10-10-10-10")
+        context.user_data['waiting_for_input'] = "crop"
+
+    elif process_type == "format":
+        await query.edit_message_text("فرمت جدید را وارد کنید ")
+        context.user_data['waiting_for_input'] = "format"
 
     elif process_type == "removebg":
         output_path = image_processor.remove_background(file_path)
@@ -206,7 +216,20 @@ async def handle_additional_input(update: Update, context: ContextTypes.DEFAULT_
             await context.bot.send_document(chat_id=update.effective_chat.id, document=open(output_path, 'rb'))
         except ValueError:
             await update.message.reply_text("لطفاً یک عدد صحیح وارد کنید.")
-
+    elif waiting_for == "crop":
+            try:
+                t, b,r,l = map(int, update.message.text.split('-'))
+                output_path = image_processor.crop_image(file_path, crop_top=t,crop_bottom=b,crop_left=r,crop_right=l)
+                await context.bot.send_document(chat_id=update.effective_chat.id, document=open(output_path, 'rb'))
+            except ValueError:
+                await update.message.reply_text("لطفاً یک عدد صحیح وارد کنید.")
+    elif waiting_for == "format":
+            try:
+                format=update.message.text
+                output_path = image_processor.change_format(file_path, new_format=format)
+                await context.bot.send_document(chat_id=update.effective_chat.id, document=open(output_path, 'rb'))
+            except ValueError:
+                await update.message.reply_text("لطفاً فرمت صحیح را وارد کنید")
     elif waiting_for == "addcaption":
         caption_text = update.message.text
          # Define a small region to see the box expansion
@@ -263,6 +286,10 @@ async def handle_additional_input(update: Update, context: ContextTypes.DEFAULT_
 
     context.user_data['waiting_for_input'] = None
 
+
+
+
+
 async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -295,9 +322,35 @@ async def button_callback(update, context):
     await query.answer()
     await query.edit_message_text(text="Button clicked!")
 
+# # Main function
+# def main():
+#     # Replace with your actual Telegram bot token
+#     TOKEN = '7800194193:AAHThD3FWW6CwC2KBXVjRzM_LvyP5eTmwJ4'
+
+#     # Create the Application
+#     application = Application.builder().token(TOKEN).build()
+
+#     # Add handlers for commands and interactions
+#     application.add_handler(CommandHandler("start", start))
+#     # application.add_handler(CallbackQueryHandler(button_callback))
+#     application.add_handler(MessageHandler(filters.Document.ALL, handle_file_upload))
+#     application.add_handler(CommandHandler("help", help_command))
+
+#     # Set bot commands for better user experience
+#     commands = [
+#         BotCommand("start", "Start the bot"),
+#         BotCommand("help", "Get help using the bot"),
+#     ]
+#     application.bot.set_my_commands(commands)
+
+#     # Run the bot
+#     print("Bot is running. Press Ctrl+C to stop.")
+#     application.run_polling()
+
 
 # ***********************************************************************
 def main():
+    # Initialize Application with token
     application = Application.builder().token(BOT_TOKEN).build()
 
     # Handlers for basic commands
