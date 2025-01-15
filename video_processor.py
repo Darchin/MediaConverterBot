@@ -347,7 +347,6 @@ class VideoProcessor:
                 self.output_dir,
                 f"{os.path.splitext(os.path.basename(input_path))[0]}_trimmed"
             )
-            os.makedirs(output_directory, exist_ok=True)
 
         in_probe = ffmpeg.probe(input_path)
         in_format = in_probe['format']['format_name'].split(',')[0]
@@ -409,7 +408,6 @@ class VideoProcessor:
     def extract_audio(
         self,
         input_path: str,
-        format: str,
         output_path: str = None
     ) -> str:
         """
@@ -417,10 +415,15 @@ class VideoProcessor:
         e.g. .m4a, .mp3, .wav. We do not want to produce a .mpeg file
         containing MP2 because it's often unplayable in many players.
         """
+        container, acodec = _guess_audio_container_and_codec(output_path)
+        match container:
+            case "ipod": ext = ".m4a"
+            case "mp3": ext = ".mp3"
+            case "wav": ext = ".wav"
+            case _: ext = ".m4a"
         if output_path is None:
             basename = os.path.splitext(os.path.basename(input_path))[0]
-            output_path = os.path.join(self.output_dir, f"{basename}_audio_only.{format}")
-        container, acodec = _guess_audio_container_and_codec(output_path)
+            output_path = os.path.join(self.output_dir, f"{basename}_audio_only{ext}")
         # We do -vn to drop video, and either copy or transcode to that audio codec.
         # Usually we just transcode, for consistent results.
         # If the user’s input audio is the same codec, we could do copy, but let’s
@@ -474,13 +477,13 @@ class VideoProcessor:
         text: str,
         start_time: float,
         end_time: float,
+        output_path: str = None,
         font: str = "Consolas",
         font_size: int = 24,
         font_color: str = "white",
         box_color: str = "black",
         box_alpha: float = 0.5,
         padding: int = 10,
-        output_path: str = None,
     ) -> str:
         """
         Adds a caption with an auto bounding box and padding over [start_time, end_time].
