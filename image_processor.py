@@ -346,4 +346,3 @@ class ImageProcessor:
         # --- Step 9: Save the result ---
         image.save(output_path, format=out_format)
         return output_path
-

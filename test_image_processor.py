@@ -164,4 +164,3 @@ def test_add_caption(processor):
             assert img is not None, f"Captioned image is not a valid image file for position: {pos}"
            
         print(f"Captioned image with position {pos} saved at: {output_path}")
-
