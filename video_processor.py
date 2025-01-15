@@ -54,13 +54,23 @@ class VideoProcessor:
       6) Add caption with auto bounding box
     """
 
-    def __init__(self):
-        # Map logical font name to TTF file in ./resources/fonts
+    def __init__(self, output_dir: str = "./output"):
+        self.output_dir = output_dir
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
+        # Existing font_map initialization
         self.font_map = {
             "XB Roya": "./resources/fonts/XB ROYA.ttf",
             "Consolas": "./resources/fonts/consola.ttf",
             "Linux Libertine": "./resources/fonts/LinLibertine_R.ttf"
         }
+
+    def _get_default_output_path(self, input_path: str, suffix: str) -> str:
+        """Generate default output path with informative suffix"""
+        basename = os.path.splitext(os.path.basename(input_path))[0]
+        ext = os.path.splitext(input_path)[1]
+        return os.path.join(self.output_dir, f"{basename}_{suffix}{ext}")
 
     # ----------------------------------------------------
     # 1) Change resolution
@@ -68,9 +78,12 @@ class VideoProcessor:
     def change_resolution(
         self,
         input_path: str,
-        output_path: str,
+        output_path: str = None,
         resolution: Tuple[int, int] = (1280, 720),
     ) -> str:
+        if output_path is None:
+            res_str = f"{resolution[0]}x{resolution[1]}"
+            output_path = self._get_default_output_path(input_path, f"res_{res_str}")
         """
         Upscale or downscale to a specified resolution.
         Keep audio by passing both video and audio streams to ffmpeg's output.
@@ -108,13 +121,15 @@ class VideoProcessor:
     def change_framerate(
         self,
         input_path: str,
-        output_path: str,
+        output_path: str = None,
         framerate: int = 30
     ) -> str:
         """
         Change the video frame rate.
         Include audio in the output, preserving or transcoding as needed.
         """
+        if output_path is None:
+            output_path = self._get_default_output_path(input_path, f"fps_{framerate}")
         in_probe = ffmpeg.probe(input_path)
         in_format = in_probe['format']['format_name'].split(',')[0]
         streams = in_probe['streams']
@@ -146,7 +161,7 @@ class VideoProcessor:
     def merge_videos(
         self,
         input_paths: List[str],
-        output_path: str,
+        output_path: str = None,
         unify_format: Union[str, None] = None,
         resolution: Union[str, Tuple[int, int], None] = None,
         framerate: Union[str, int, None] = None
@@ -157,6 +172,16 @@ class VideoProcessor:
         or unifies to that container if there's a mismatch.
         Optionally unify resolution/fps if specified.
         """
+        if output_path is None:
+            # Use first video's extension for output
+            ext = os.path.splitext(input_paths[0])[1]
+            basename = "merged_" + "_".join(
+                os.path.splitext(os.path.basename(p))[0] 
+                for p in input_paths[:2]  # First 2 names only
+            )
+            if len(input_paths) > 2:
+                basename += f"_and_{len(input_paths)-2}_more"
+            output_path = os.path.join(self.output_dir, f"{basename}{ext}")
         if len(input_paths) < 2:
             raise ValueError("At least two videos are required to merge.")
 
@@ -309,7 +334,7 @@ class VideoProcessor:
         self,
         input_path: str,
         intervals: List[Tuple[float, float]],
-        output_directory: str
+        output_directory: str = None
     ) -> List[str]:
         """
         Trim or split into multiple fragments. 
@@ -317,8 +342,11 @@ class VideoProcessor:
         If truly no changes in codecs are needed, we do -c copy, 
         else re-encode.
         """
-        if not os.path.exists(output_directory):
-            os.makedirs(output_directory)
+        if output_directory is None:
+            output_directory = os.path.join(
+                self.output_dir,
+                f"{os.path.splitext(os.path.basename(input_path))[0]}_trimmed"
+            )
 
         in_probe = ffmpeg.probe(input_path)
         in_format = in_probe['format']['format_name'].split(',')[0]
@@ -380,7 +408,7 @@ class VideoProcessor:
     def extract_audio(
         self,
         input_path: str,
-        output_path: str
+        output_path: str = None
     ) -> str:
         """
         Extract only audio to a purely audio container format if possible,
@@ -388,6 +416,14 @@ class VideoProcessor:
         containing MP2 because it's often unplayable in many players.
         """
         container, acodec = _guess_audio_container_and_codec(output_path)
+        match container:
+            case "ipod": ext = ".m4a"
+            case "mp3": ext = ".mp3"
+            case "wav": ext = ".wav"
+            case _: ext = ".m4a"
+        if output_path is None:
+            basename = os.path.splitext(os.path.basename(input_path))[0]
+            output_path = os.path.join(self.output_dir, f"{basename}_audio_only{ext}")
         # We do -vn to drop video, and either copy or transcode to that audio codec.
         # Usually we just transcode, for consistent results.
         # If the user’s input audio is the same codec, we could do copy, but let’s
@@ -403,12 +439,14 @@ class VideoProcessor:
     def extract_video_only(
         self,
         input_path: str,
-        output_path: str
+        output_path: str = None
     ) -> str:
         """
         Extract only the video stream (drop audio),
         preserving container if possible.
         """
+        if output_path is None:
+            output_path = self._get_default_output_path(input_path, "video_only")
         container, vcodec, acodec = _guess_container_and_codecs(output_path)
         in_probe = ffmpeg.probe(input_path)
         streams = in_probe['streams']
@@ -436,10 +474,10 @@ class VideoProcessor:
     def add_caption(
         self,
         input_path: str,
-        output_path: str,
         text: str,
         start_time: float,
         end_time: float,
+        output_path: str = None,
         font: str = "Consolas",
         font_size: int = 24,
         font_color: str = "white",
@@ -452,6 +490,12 @@ class VideoProcessor:
         This requires re-encoding the video track (drawtext filter).
         Audio is copied or transcoded as needed.
         """
+        if output_path is None:
+            caption_text = text[:20] + "..." if len(text) > 20 else text
+            caption_text = "".join(c for c in caption_text if c.isalnum() or c in " _-")
+            output_path = self._get_default_output_path(
+                input_path, f"caption_{caption_text}"
+            )
         if font not in self.font_map:
             raise ValueError(f"Font '{font}' not recognized. "
                              f"Available fonts: {list(self.font_map.keys())}")

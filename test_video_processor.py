@@ -18,7 +18,7 @@ CAPTIONED_VIDEO = os.path.join(OUTPUT_DIR, "captioned_video.mpeg")
 
 @pytest.fixture(scope="module")
 def video_processor():
-    return VideoProcessor()
+    return VideoProcessor(OUTPUT_DIR)
 
 def test_change_resolution(video_processor):
     if not os.path.exists(OUTPUT_DIR):
@@ -26,7 +26,7 @@ def test_change_resolution(video_processor):
 
     out_file = video_processor.change_resolution(
         input_path=SAMPLE_VIDEO_1,
-        output_path=RESIZED_VIDEO,
+        # output_path=RESIZED_VIDEO,
         resolution=(640, 360)
     )
     assert os.path.isfile(out_file), "Resized video was not created."
@@ -34,7 +34,7 @@ def test_change_resolution(video_processor):
 def test_change_framerate(video_processor):
     out_file = video_processor.change_framerate(
         input_path=SAMPLE_VIDEO_1,
-        output_path=FRAMERATE_VIDEO,
+        # output_path=FRAMERATE_VIDEO,
         framerate=24
     )
     assert os.path.isfile(out_file), "Framerate-changed video was not created."
@@ -42,7 +42,7 @@ def test_change_framerate(video_processor):
 def test_merge_videos(video_processor):
     out_file = video_processor.merge_videos(
         [SAMPLE_VIDEO_1, SAMPLE_VIDEO_2],
-        MERGED_VIDEO,
+        # MERGED_VIDEO,
         unify_format=None,
         resolution=None,
         framerate=None
@@ -50,14 +50,14 @@ def test_merge_videos(video_processor):
     assert os.path.isfile(out_file), "Merged video was not created."
 
 def test_trim_video(video_processor):
-    if not os.path.exists(TRIM_DIR):
-        os.makedirs(TRIM_DIR)
+    # if not os.path.exists(TRIM_DIR):
+        # os.makedirs(TRIM_DIR)
 
     intervals = [(0, 3), (3, 6)]
     output_files = video_processor.trim_video(
         input_path=SAMPLE_VIDEO_1,
         intervals=intervals,
-        output_directory=TRIM_DIR
+        # output_directory=TRIM_DIR
     )
     for f in output_files:
         assert os.path.isfile(f), f"Trimmed video file {f} not created."
@@ -65,21 +65,22 @@ def test_trim_video(video_processor):
 def test_extract_audio(video_processor):
     out_file = video_processor.extract_audio(
         input_path=SAMPLE_VIDEO_1,
-        output_path=EXTRACTED_AUDIO
+        format="m4a"
+        # output_path=EXTRACTED_AUDIO
     )
     assert os.path.isfile(out_file), "Extracted audio file not created."
 
 def test_extract_video_only(video_processor):
     out_file = video_processor.extract_video_only(
         input_path=SAMPLE_VIDEO_1,
-        output_path=EXTRACTED_VIDEO
+        # output_path=EXTRACTED_VIDEO
     )
     assert os.path.isfile(out_file), "Extracted video-only file not created."
 
 def test_add_caption(video_processor):
     out_file = video_processor.add_caption(
         input_path=SAMPLE_VIDEO_1,
-        output_path=CAPTIONED_VIDEO,
+        # output_path=CAPTIONED_VIDEO,
         text="Hello Ocean!",
         start_time=1.0,
         end_time=5.0,
